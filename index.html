@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Animated Book Website</title>
+    <!-- GSAP CDN - Essential for the animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <style>
+        /* Basic Reset and Body Styling */
+        body {
+            margin: 0;
+            overflow: hidden; /* Hide scrollbar initially for animation */
+            font-family: 'Inter', sans-serif; /* Use Inter font */
+            background-color: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center; /* Align content from the top */
+            min-height: 100vh;
+            color: #333;
+        }
+
+        /* Styles for the animation container that covers the whole screen */
+        .animation-container {
+            position: fixed; /* Keep it fixed on top during animation */
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #f0f0f0; /* Match body background */
+            z-index: 1000; /* Ensure it's on top of everything */
+            border-radius: 8px; /* Apply rounded corners to the container */
+        }
+
+        /* Styles for the book element */
+        .book {
+            position: relative;
+            /* Responsive book sizing: scales with viewport, capped at max desktop size */
+            --book-width: min(50vw, 250px); /* 50% of viewport width, max 250px */
+            width: var(--book-width);
+            height: calc(var(--book-width) * 1.4); /* Maintain original 350/250 = 1.4 aspect ratio */
+            perspective: 1500px; /* For 3D transformations, creates depth */
+            transform-style: preserve-3d; /* Ensures children are rendered in 3D space */
+            border-radius: 8px; /* Rounded corners for the book */
+        }
+
+        /* Common styles for book covers and pages */
+        .book .cover,
+        .book .page {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transform-origin: left center; /* Pivot point for flipping from the spine */
+            backface-visibility: hidden; /* Hide the back side of elements during 3D rotation */
+            border: 1px solid #ccc; /* For visual separation between pages/covers */
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3); /* Soft shadow for depth */
+            box-sizing: border-box; /* Include padding/border in width/height */
+            border-radius: 5px; /* Slightly rounded corners for pages/covers */
+        }
+
+        /* Styling for the front book cover */
+        .book .cover.front {
+            background: linear-gradient(135deg, #a82e2e, #7c1f1f); /* Gradient red cover */
+            z-index: 7; /* On top initially */
+            transform: rotateY(0deg); /* Initial state */
+            border-radius: 0 8px 8px 0; /* Rounded right edge only */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            /* Responsive font size for cover title */
+            font-size: clamp(1.2em, 5vw, 1.8em); /* Min 1.2em, scales with VW, max 1.8em */
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5); /* Stronger text shadow */
+            overflow: hidden; /* Hide overflow from text */
+        }
+        .book .cover.front::before {
+            content: "Trishul's Ink"; /* Title on the cover */
+            padding: 10px;
+            border-radius: 8px;
+            background-color: rgba(0,0,0,0.2);
+        }
+
+        /* Styling for the back book cover */
+        .book .cover.back {
+            background: linear-gradient(135deg, #FFFDD0, #a82e2e); /* Mirrored gradient for back */
+            z-index: 0; /* Behind everything initially */
+            transform: rotateY(180deg); /* Starts flipped for back */
+            border-radius: 8px 0 0 8px; /* Rounded left edge only */
+        }
+
+        /* Styling for individual pages */
+        .book .page {
+            background-color: #FFFDD0; /* White pages */
+            z-index: 6; /* Pages stack from front to back */
+            transform: rotateY(0deg); /* Initial state for pages */
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.1); /* Inner shadow for page depth */
+            border-left: 1px dashed #eee; /* Subtle spine line */
+        }
+
+        /* Adjust z-index for pages to ensure correct layering during flips */
+        /* Lower index means further back, higher means closer to viewer */
+        .book .page-1 { z-index: 6;
+			transform: rotateY(0deg); /* Initial state */
+            border-radius: 0 8px 8px 0; /* Rounded right edge only */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+			font-size: clamp(1.2em, 5vw, 1.8em); /* Min 1.2em, scales with VW, max 1.8em */
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5); /* Stronger text shadow */
+            overflow: hidden; 
+		}
+        .book .page-2 { z-index: 5; 
+			transform: rotateY(0deg); /* Initial state */
+            border-radius: 0 8px 8px 0; /* Rounded right edge only */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+			font-size: clamp(1.2em, 5vw, 1.8em); /* Min 1.2em, scales with VW, max 1.8em */
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5); /* Stronger text shadow */
+            overflow: hidden; 
+		}
+        .book .page-3 { z-index: 4; }
+        .book .page-4 { z-index: 3; }
+        .book .page-5 { z-index: 2; }
+		
+		.book .page-1::before {
+            content: "Read"; /* Title on the cover */
+            padding: 10px;
+            border-radius: 8px;
+        }
+		.book .page-2::before {
+            content: "Write"; /* Title on the cover */
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+
+        /* Styles for the wrapper of flying text pieces */
+        .flying-text-wrapper {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%); /* Center the wrapper */
+            z-index: 1001; /* IMPORTANT: Ensure text is above the book (book is inside container z-index 1000) */
+        }
+
+        /* Styling for each individual flying text piece */
+        .text-piece {
+            position: absolute; /* Allows precise positioning with JS */
+            white-space: nowrap; /* Keep words on one line */
+            /* Responsive font size for flying text */
+            font-size: clamp(1.5em, 8vw, 2.2em); /* Min 1.5em, scales with VW, max 2.2em */
+            font-weight: bold;
+            color: #4a4a4a; /* Darker text color */
+            opacity: 0; /* Start hidden */
+            transform: translate(-50%, -50%) scale(0.5); /* Start small and centered at book */
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3); /* Clearer text shadow */
+            pointer-events: none; /* Make text non-interactive to not block clicks */
+            user-select: none; /* Prevent text selection */
+        }
+
+        /* Styles for the main content that appears after the animation */
+        .content-after-animation {
+            /* Responsive padding */
+            padding: clamp(20px, 5vw, 40px) clamp(10px, 3vw, 20px); /* Min/max padding, scales with VW */
+            opacity: 0; /* Start hidden */
+            transition: opacity 1s ease-out; /* Smooth fade-in effect */
+            width: 90%; /* Wider content area */
+            max-width: 960px; /* Max width for readability */
+            box-sizing: border-box;
+            line-height: 1.8; /* Increased line height for readability */
+            color: #555;
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1); /* More pronounced shadow */
+            text-align: justify; /* Justify text for clean look */
+			display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .content-after-animation h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+            /* Responsive font size for main content heading */
+            font-size: clamp(1.8em, 7vw, 2.5em); /* Min 1.8em, scales with VW, max 2.5em */
+        }
+
+        .content-after-animation p {
+            margin-bottom: 20px;
+        }
+
+        /* Class to make main content visible */
+        .content-after-animation.visible {
+            opacity: 1;
+        }
+
+        /* Utility classes for body scroll behavior */
+        body.no-scroll {
+            overflow: hidden; /* Prevent scrolling */
+        }
+
+        body.allow-scroll {
+            overflow-y: scroll; /* Allow vertical scrolling */
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Main container for the animation, fixed to cover the entire viewport -->
+    <div class="animation-container">
+        <!-- The book element, containing covers and pages -->
+        <div class="book">
+            <div class="cover front"></div>
+            <div class="page page-1"></div>
+            <div class="page page-2"></div>
+            <div class="cover back"></div>
+        </div>
+
+        <!-- Wrapper for text pieces that will fly out from the book -->
+        <div class="flying-text-wrapper">
+            <span class="text-piece"></span>
+            <span class="text-piece">The</span>
+            <span class="text-piece">Tale</span>
+            <span class="text-piece">Of</span>
+            <span class="text-piece">Hiro-She</span>
+            <span class="text-piece">By</span>
+            <span class="text-piece">Trishul</span>
+            <span class="text-piece"></span>
+        </div>
+    </div>
+
+    <!-- Main website content, initially hidden and pushed down -->
+    <div class="content-after-animation">
+        <h1>Coming Soon...</h1>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const book = document.querySelector('.book');
+            const coverFront = document.querySelector('.book .cover.front');
+            const pages = document.querySelectorAll('.book .page');
+            const textPieces = document.querySelectorAll('.text-piece');
+            const animationContainer = document.querySelector('.animation-container');
+            const mainContent = document.querySelector('.content-after-animation');
+
+            document.body.classList.add('no-scroll');
+
+            const tl = gsap.timeline({
+                paused: true,
+                onComplete: () => {
+                    gsap.to(animationContainer, {
+                        opacity: 0,
+                        duration: 0.25,
+                        onComplete: () => {
+                            animationContainer.style.display = 'none';
+                            mainContent.classList.add('visible');
+                            document.body.classList.remove('no-scroll');
+                            document.body.classList.add('allow-scroll');
+                        }
+                    });
+                }
+            });
+
+            // Calculate initial text position relative to book center
+            const bookRect = book.getBoundingClientRect();
+            const bookCenterGlobalX = bookRect.left + (bookRect.width / 2);
+            const bookCenterGlobalY = bookRect.top + (bookRect.height / 2);
+
+            const initialTextX = bookCenterGlobalX - (window.innerWidth / 2);
+            const initialTextY = bookCenterGlobalY - (window.innerHeight / 2);
+
+            // Function to run a single text fly sequence
+            function addTextFlySequence(timelineInstance) {
+                // Reset text pieces to initial hidden state at book center
+                timelineInstance.call(() => {
+                    gsap.set(textPieces, {
+                        x: initialTextX,
+                        y: initialTextY,
+                        opacity: 0,
+                        scale: 0.2,
+                        transformOrigin: "center center"
+                    });
+                }, null, "+=0.01"); // Small delay to ensure set() completes before to() starts
+
+                // Animate text appearance
+                timelineInstance.to(textPieces, {
+                    opacity: 1,
+                    scale: 1,
+                    duration: -1.0, // Very fast appearance
+                    ease: "power1.out",
+                    stagger: { each: 0.1, from: "random" } // Super fast stagger
+                }, "<"); // Start immediately after the set (with a tiny offset)
+
+                // Animate text flying away
+                timelineInstance.to(textPieces, {
+                    duration: 0.25, // Very fast flight
+                    y: (i) => initialTextY - (Math.random() * window.innerHeight * 0.4 + window.innerHeight * 0.05), // Fly upwards
+                    x: (i) => initialTextX + (Math.random() - 0.5) * window.innerWidth * 0.6, // Spread horizontally
+                    rotation: (i) => Math.random() * 360 - 180, // Random rotation
+                    opacity: 0, // Fade out as they fly
+                    scale: 0.5, // Shrink slightly
+                    ease: "power1.in",
+                    stagger: { each: 0.01, from: "random" } // Super fast stagger
+                }, "<0.02"); // Start flying very shortly after appearance
+            }
+
+            // --- Animation Sequence ---
+
+            // 1. Front cover opens slightly
+            tl.to(coverFront, {
+                duration: 0.5, // Slower cover open
+                rotationY: -150,
+                x: '-2%',
+                ease: "power2.inOut"
+            });
+
+            // 2. First text fly sequence (after initial cover open)
+            //addTextFlySequence(tl);
+
+            // 3. Loop through each page flip followed by a text fly
+            pages.forEach((page, index) => {
+                tl.to(page, {
+                    duration: 0.35, // Slower individual page flip
+                    rotationY: -180,
+                    transformOrigin: "left center",
+                    ease: "power2.inOut",
+                    zIndex: pages.length - index + 10,
+                    delay: 0.0 // Increased delay for sequential clarity between pages
+                });
+                // Add text fly sequence after each page flip
+				if(pages.length == index+1)
+					addTextFlySequence(tl);
+            });
+
+            // 4. Final flip of the front cover (after all pages and text flies)
+            tl.to(coverFront, {
+                duration: 0.15, // Slower final cover flip
+                rotationY: -180,
+                x: '-100%',
+                ease: "power2.inOut"
+            });
+
+            // Play the entire animation timeline
+            tl.play();
+        });
+    </script>
+</body>
+</html>
